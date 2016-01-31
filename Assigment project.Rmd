@@ -1,0 +1,284 @@
+---
+output: 
+  html_document: 
+    keep_md: yes
+---
+---
+#"Will an automatic transmission give you couple of extra miles between gas stations ?"
+###author: "Andrii Krasnyi"
+###date: "24 January 2016"
+
+This  work is assignment for Coursera: Regression Models course in Data Science Specialization track.
+
+#Executive summary
+Assignment task  is to apply regression analysis to evaluate the effect of transmission on the mileage per gallon (mpg) of the cars featured in a standard R data-set, extracted from a 1974 issue of Motor Trends magazine by professors Harold Henderson and Paul Velleman for an article on regression published in 1981.
+The questions for assignment are:
+
+* Is an automatic transmission better for MPG?
+* Quantify the MPG difference between automatic and manual transmissions
+
+Exploratory data analysis showed that data set need to be clustered by Number of cylinders. following conclusions has been reached: 
+
+* Test of null hypothesis for each cluster showed  that we can rejecte null hypotesis only for 4 cylinders cars, in other clusters null hypothesis cannot be rejected. Which means  can not give an answer to the question of interest - Is an automatic transmission better for MPG?
+* Each cluster has different regression model that best fits best. In each model we have more significant regressors than transmission type
+* Cluster of cars  with 4 cylinders has the biggest difference between median of cars with manual transmission 6.05 mpg, however transmission type  as regressor has significance less than 5%, therefore this difference mostly explained by other significant regressor such as weight
+* For other cluster difference in mpg is insignificant for cars with automated or manual transmission 
+
+
+#Exploratory data analyses
+```{r}
+data(mtcars)
+#dim(mtcars)
+#summary(mtcars)
+head (mtcars)
+```
+
+We used mtcars, a standard data-set in R. It observe `r nrow(mtcars)` cars, model 1973-1974, in terms of fuel efficiency (mpg) and other `r ncol(mtcars)-1` variables. The selection skews towards exotic cars. "It includes seven Mercedes, a Porsche, a Ferrari and a Maserati", wrote Henderson and Velleman, who collected the data in a paper, as a caveat that one can't derive universal conclusions from that. This might have an effect, for example, on the horsepower (alas, they included a Maserati and a Ferrari) and on the weight of the cars.
+
+Figure 1 in Appendix shows clear segmentation of data in terms of mpg and displacement (cu.in.) when observations are grouped by number of cylinders variable.This plot also shows that number of observation with manual or automated transmission between group of cars with different number of cylinders. As such, we can observe that group cars with 4 cylinders have mostly manual transmission, where 6 and 8 cylinders cars have mostly automated transmission. This give us an idea  that if we will base our analysis on overall data set this might lead us to inaccurate conclusion in regards of first question we need to answer:"Is an automatic transmission better for MPG?". To have more accurate results we need to compare like to like and I suggest to do clustering of observations based on number of cylinders.
+
+For further analysis we will create subset of data grouped on number of cylinders
+```
+cars_4_cyl<- filter(mtcars, cyl==4)
+cars_6_cyl<- filter(mtcars, cyl==6)
+cars_8_cyl<- filter(mtcars, cyl==8)
+
+```
+```{r, echo=FALSE}
+library(dplyr, logical.return = FALSE,
+        warn.conflicts = FALSE, quietly = TRUE)
+cars_4_cyl<- filter(mtcars, cyl==4)
+cars_6_cyl<- filter(mtcars, cyl==6)
+cars_8_cyl<- filter(mtcars, cyl==8)
+
+```
+
+Figure 2 in Appendix shows boxplot with averages for manual and automated transmission in each segment.
+From this figure we can see significant differences in mpg for cars in segment 4 cylinders, at the same time this difference much less or even does not exist for segments of 6 and 8 cylinders. Median mpg for 4 cyl cars with manual transmission `r tapply(cars_4_cyl$mpg, as.factor(cars_4_cyl$am), FUN=median)[[2]]` for cars with automate transmission `r tapply(cars_4_cyl$mpg,as.factor(cars_4_cyl$am), FUN=median)[[1]]`. 
+For 6 cyl 
+manual `r tapply(cars_6_cyl$mpg,as.factor(cars_6_cyl$am), FUN=median)[[2]]`, automate `r tapply(cars_6_cyl$mpg,as.factor(cars_6_cyl$am), FUN=median)[[1]]`. 
+For 8 cyl 
+manual `r tapply(cars_8_cyl$mpg,as.factor(cars_8_cyl$am), FUN=median)[[2]]`, automate `r tapply(cars_8_cyl$mpg,as.factor(cars_8_cyl$am), FUN=median)[[1]]`. 
+
+Taking this into account more accurate predictor than transmission type should exist. If we would like to look at whole data-set, such predictor could be weight. Figure 3 in Appendix shows strong correlation of mpg vs weight of cars.   
+
+# Regression model. 
+## Nested models analysis
+Nested models for  data clustered based on number of cylinders:
+As exploratory data analysis showed that more accurate answer for the question of interest can be obtained if we cluster data by number of cylinders, we will start with building models for each cluster first. We think that significant predictors could be wt;disp;carb;hp;qsec and we also need to consider transmission type. 
+I will use nested models analysis to select model that fit best. 
+
+### 4 cylinders
+
+```{r}
+ft1_4 <- lm(mpg~am, data = cars_4_cyl)
+ft3_4 <- update(ft1_4,mpg~am+wt)
+ft4_4 <- update(ft1_4,mpg~am+wt+disp)
+ft5_4 <- update(ft1_4,mpg~am+wt+disp+carb)
+ft6_4 <- update(ft1_4,mpg~am+wt+disp+carb+hp)
+ft7_4 <- update(ft1_4,mpg~am+wt+disp+carb+hp+qsec)
+anova(ft1_4,ft3_4,ft4_4,ft5_4,ft6_4,ft7_4)
+```
+From nested models analysis this cluster two parameters: F statistics and sum of square errors shows that inclusion of all regression coefficients are necessary.  
+```{r}
+summary(ft7_4)
+```
+This model explains only 38.3 % of variability for 4 cyl cars 
+
+
+### 6 cylinders
+As we  have limited number of observations in this category we will reduce number of regression coefficients for building model. we will use am; wt; disp; carb for building model
+```{r}
+ft1_6 <- lm(mpg~am, data = cars_6_cyl)
+ft3_6 <- update(ft1_6,mpg~am+wt)
+ft4_6 <- update(ft1_6,mpg~am+wt+disp)
+ft5_6 <- update(ft1_6,mpg~am+wt+disp+carb)
+#ft6_6 <- update(ft1_6,mpg~am+wt+disp+carb+hp)
+#ft7_6 <- update(ft1_6,mpg~am+wt+disp+carb+hp+qsec)
+anova(ft1_6,ft3_6,ft4_6,ft5_6)
+```
+From nested models analysis this cluster two parameters: F statistics and sum of square errors shows that inclusion of all regression coefficients are necessary. Final model for this cluster is
+```{r}
+summary(ft4_6)
+
+```
+This model explains only 40.3% of variability  for 6  cyl cars 
+
+### 8 cylinders
+```{r}
+ft1_8 <- lm(mpg~am, data = cars_8_cyl)
+ft3_8 <- update(ft1_8,mpg~am+wt)
+ft4_8 <- update(ft1_8,mpg~am+wt+disp)
+ft5_8 <- update(ft1_8,mpg~am+wt+disp+carb)
+ft6_8 <- update(ft1_8,mpg~am+wt+disp+carb+hp)
+ft7_8 <- update(ft1_8,mpg~am+wt+disp+carb+hp+qsec)
+anova(ft1_8,ft3_8,ft4_8,ft5_8,ft6_8,ft7_8)
+```
+From nested models analysis this cluster two parameters: F statistics and sum of square errors shows that inclusion of all regression coefficients are not necessary. Best fit  model will be is:
+
+```{r}
+summary(ft4_8)
+```
+This model explains only 27.7% of variability for 6  cyl cars
+
+
+#Inference
+
+At this step, we would like to test the null hypothesis at each cluster to check is MPG depends on type of transmission. Null hypothesis will with change of transmission nothing is going on with mpg. Alternative hypothesis is that mpg depends on type of transmission 
+We use the two sample T-test to show it. Significance level 5%
+
+### 4 cylinders cars
+```{r}
+t.test(mpg~am,data=cars_4_cyl)
+```
+Since the p-value in this cluster is `r t.test(mpg~am,data=cars_4_cyl)$p.value` we can reject our null hypothesis.
+
+### 6 cylinders cars
+```{r}
+t.test(mpg~am,data=cars_6_cyl)
+```
+Since the p-value in this cluster is `r t.test(mpg~am,data=cars_6_cyl)$p.value` we cannot reject our null hypothesis.
+
+### 8 cylinders cars
+```{r}
+t.test(mpg~am,data=cars_8_cyl)
+```
+Since the p-value in this cluster is `r t.test(mpg~am,data=cars_8_cyl)$p.value` we cannot reject our null hypothesis.
+
+
+# Automated model selection
+At this step use automated model selection with AIC method for quality measurement to select some statistically significant variables. 
+
+### 4 cylinders segment
+```{r, echo=TRUE}
+init_fit_4  <- lm(mpg ~ ., data = cars_4_cyl)
+best_fit_4 <- step(init_fit_4, direction = "both", k=2, trace= 0)
+```
+```{r,echo=TRUE}
+summary(best_fit_4)
+```
+
+It has the Residual standard error: 1.753 on 6 degrees of freedom. And the Adjusted R-squared:  0.849, which means that the model can explain about 84.9% of the variance of the MPG variable. Weight is the coefficient significant at 0.05 significant level. 
+
+### 6 cylinders segment - we have insuficient number of observations to build automated model
+
+### 8 cylinders segment
+```{r, echo=TRUE}
+init_fit_8  <- lm(mpg ~ ., data = cars_8_cyl)
+best_fit_8 <- step(init_fit_8, direction = "both", k=2,trace= 0)
+```
+```{r}
+summary(best_fit_8)
+```
+
+It has the Residual standard error: 1.949 on 8 degrees of freedom. And the Adjusted R-squared:  0.4203, which means that the model can explain about 42% of the variance of the MPG variable. Horsepower, Rear axle ratio, Transmission are coefficients significant at 0.05 significant level. 
+
+
+For overall data set
+
+```{r, echo=TRUE}
+init_fit <- lm(mpg ~ ., data = mtcars)
+best_fit <- step(init_fit, direction = "both", k=2, trace= 0)
+#summary(init_fit)
+```
+
+```{r}
+summary(best_fit)
+```
+
+. It has the Residual standard error: 2.459 on 28 degrees of freedom. And the Adjusted R-squared:  0.8336, which means that the model can explain about 83 % of the variance of the MPG variable. However no coefficients are significant at 0.05 significant level. 
+
+
+#Model Residuals and Diagnostics
+
+In this section, we have the residual plots of our regression model along with computation of regression diagnostics for our liner model. This exercise helped us in examining the residuals and finding leverage points to find any potential problems with the model.
+We will do diagnostics by segments analysed. Please refer to Figure 4 - 4 cylinders cars and Figure 5 - 8 cylinders cars in Appendix
+
+*4 cylinders cars*
+
+```{r, echo=FALSE}
+#par(mfrow=c(2, 2))
+#plot(best_fit_4)
+```
+
+*8 cylinders cars*
+
+```{r echo=FALSE}
+#par(mfrow=c(2, 2))
+#plot(best_fit_8)
+```
+
+Following observations are made from the both set of plots above 
+
+1. The points in the Residuals vs. Fitted plot are randomly scattered on the plot that verifies the independence condition.
+2. The Normal Q-Q plot consists of the points which mostly fall on the line indicating that the residuals are normally distributed.
+3. The Scale-Location plot consists of points scattered in a constant band pattern, indicating constant variance.
+4. There are some distinct points of interest (outliers or leverage points) in the top right of the plots that may indicate values of increased leverage of outliers.
+
+
+# Conclusions
+Based on the analyses performed we can conclude that when date are split into 3 clusters base on number of cylinders.
+
+1. Test of null hypothesis for each cluster showed  that we can rejecte null hypotesis only for 4 cylinders cars, in other clusters null hypothesis cannot be rejected. Which means  can not give an answer to the question of interest - Is an automatic transmission better for MPG? 
+2. Each cluster has different regression model that best fits observation we have. In each model we have more significant regressors than transmission type
+3. Cluster of cars has the biggest difference between median of cars with manual transmission `r tapply(cars_4_cyl$mpg,as.factor(cars_4_cyl$am), FUN=median)[[2]]- tapply(cars_4_cyl$mpg,as.factor(cars_4_cyl$am), FUN=median)[[1]]`, however am as regressor has significance less than 5%, there for this difference mostly explained by significant regressor such as weight.
+
+
+
+# Appendix 
+## Figure 1 
+```{r}
+require(graphics)
+#pairs(mtcars, main = "mtcars data")
+coplot(mpg ~ disp | as.factor(cyl), col= factor(mtcars$am), data = mtcars, panel = panel.smooth, rows = 1)
+
+```
+
+
+## Figure 2
+
+Boxplot for mpg vs type of transmission  with facets for cyl
+
+```{r}
+library(ggplot2)
+p <- ggplot(data= mtcars, aes(factor(mtcars$am), mpg))
+p <- p + geom_boxplot() +
+         scale_x_discrete(breaks=c(0, 1),
+                      labels=c("Automat", "Manual")) +
+         ylab("MPG")+
+         xlab("Transmission (0 = Automatic, 1 = Manual)")
+p <- p + facet_grid (.~cyl)
+print(p)
+
+```
+
+
+## Figure 3 
+
+```{r}
+p <- qplot(wt,mpg, data = mtcars, colour = factor(mtcars$cyl)) 
+p <- p + geom_smooth(method=lm)
+p <- p + labs(title = "Milage per gallon vs weight", x = "Weight", y="MPG", colour="Cylinders")
+    print(p)
+```
+
+
+## Figure 4 
+
+*4 cylinders cars*
+
+```{r, echo=TRUE}
+par(mfrow=c(2, 2))
+plot(best_fit_4)
+```
+
+
+## Figure 5 
+
+*8 cylinders cars*
+
+```{r echo=TRUE}
+par(mfrow=c(2, 2))
+plot(best_fit_8)
+```
+
